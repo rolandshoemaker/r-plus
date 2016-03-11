@@ -40,12 +40,13 @@ func TestMapMethods(t *testing.T) {
 	apiBase = serv.URL
 
 	rp := &rplus{
-		pending: make(map[int]*pull),
-		client:  new(http.Client),
-		repo:    "testing/repo",
+		pending:   make(map[int]*pull),
+		client:    new(http.Client),
+		repo:      "testing/repo",
+		reviewers: map[string]struct{}{"rolandshoemaker": struct{}{}},
 	}
 
-	rp.newCommit(10, "hash")
+	rp.newCommit(10, "hash", "roland")
 	if rp.pending[10] == nil {
 		t.Fatal("newCommit didn't add entry")
 	}
@@ -62,7 +63,7 @@ func TestMapMethods(t *testing.T) {
 		t.Fatalf("newCommit sent incorrect status: %s", ta.hits["hash"])
 	}
 
-	rp.newPlus(10)
+	rp.newPlus(10, "rolandshoemaker")
 	if ta.hits["/repos/testing/repo/statuses/hash"] != "success" {
 		t.Fatalf("newPlus sent incorrect status: %s", ta.hits["hash"])
 	}
@@ -71,14 +72,14 @@ func TestMapMethods(t *testing.T) {
 	}
 
 	rp.requiredReviews = 2
-	rp.newCommit(1, "other-hash")
+	rp.newCommit(1, "other-hash", "roland")
 	if rp.pending[1] == nil {
 		t.Fatal("newCommit didn't add entry")
 	}
 	if rp.pending[1].currentHash != "other-hash" {
 		t.Fatalf("newCommit added entry with incorrect hash: %s", rp.pending[1].currentHash)
 	}
-	rp.newPlus(1)
+	rp.newPlus(1, "rolandshoemaker")
 	if rp.pending[1] == nil {
 		t.Fatal("newPlus removed an entry when it shouldn't have")
 	}
@@ -89,7 +90,7 @@ func TestMapMethods(t *testing.T) {
 		t.Fatalf("newPlus change status when it shouldn't: %s", ta.hits["hash"])
 	}
 
-	rp.newPlus(12)
+	rp.newPlus(12, "rolandshoemaker")
 	if rp.pending[12] != nil {
 		t.Fatal("newPlus acted on a nil pull")
 	}
@@ -135,10 +136,12 @@ func TestServer(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 
+	roland := "roland"
+	user := &github.User{Login: &roland}
 	action := "opened"
 	num := 1
 	sha := "hash"
-	pr := &github.PullRequest{Head: &github.PullRequestBranch{SHA: &sha}}
+	pr := &github.PullRequest{Head: &github.PullRequestBranch{SHA: &sha}, User: user}
 	prEvent := github.PullRequestEvent{
 		Action:      &action,
 		Number:      &num,
@@ -198,13 +201,12 @@ func TestServer(t *testing.T) {
 
 	issue := &github.Issue{PullRequestLinks: &github.PullRequestLinks{}, Number: &num}
 	commentBody := "r+"
+	roland = "rolandshoemaker"
 	comment := &github.IssueComment{Body: &commentBody}
-	roland := "rolandshoemaker"
-	sender := &github.User{Login: &roland}
 	issueEvent := github.IssueCommentEvent{
 		Issue:   issue,
 		Comment: comment,
-		Sender:  sender,
+		Sender:  user,
 	}
 	body, err = json.Marshal(issueEvent)
 	if err != nil {

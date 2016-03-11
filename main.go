@@ -19,6 +19,7 @@ import (
 
 type pull struct {
 	currentHash string
+	author      string
 	reviews     int
 }
 
@@ -26,6 +27,7 @@ type rplus struct {
 	requiredReviews int
 	reviewers       map[string]struct{}
 	reviewPattern   *regexp.Regexp
+	selfReview      bool
 	repo            string // username/project
 	secret          []byte
 
@@ -35,17 +37,20 @@ type rplus struct {
 	client *http.Client
 }
 
-func (rp *rplus) newCommit(pr int, hash string) {
+func (rp *rplus) newCommit(pr int, hash, author string) {
 	rp.pMu.Lock()
 	defer rp.pMu.Unlock()
-	rp.pending[pr] = &pull{currentHash: hash}
+	rp.pending[pr] = &pull{currentHash: hash, author: author}
 	err := rp.updateStatus(hash, "pending")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to update status for commit '%s' on #%d: %s\n", hash, pr, err)
 	}
 }
 
-func (rp *rplus) newPlus(pr int) {
+func (rp *rplus) newPlus(pr int, reviewer string) {
+	if _, present := rp.reviewers[reviewer]; !present {
+		return
+	}
 	rp.pMu.Lock()
 	defer rp.pMu.Unlock()
 	if _, present := rp.pending[pr]; !present {
@@ -53,6 +58,9 @@ func (rp *rplus) newPlus(pr int) {
 		return
 	}
 	o := rp.pending[pr]
+	if !rp.selfReview && o.author == reviewer {
+		return
+	}
 	o.reviews++
 	if o.reviews >= rp.requiredReviews {
 		err := rp.updateStatus(o.currentHash, "success")
@@ -117,6 +125,7 @@ type config struct {
 	Reviewers       []string
 	RequiredReviews int    `yaml:"required-reviews"`
 	ReviewPattern   string `yaml:"review-pattern"`
+	SelfReview      bool   `yaml:"self-review"`
 	Repo            string `yaml:"repo"`
 	AccessToken     string `yaml:"access-token"`
 	WebhookServer   struct {
@@ -160,6 +169,7 @@ func main() {
 		requiredReviews: c.RequiredReviews,
 		reviewers:       reviewerMap,
 		reviewPattern:   reviewPattern,
+		selfReview:      c.SelfReview,
 		repo:            c.Repo,
 		secret:          []byte(c.WebhookServer.Secret),
 		pending:         make(map[int]*pull),

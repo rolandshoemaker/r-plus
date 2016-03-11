@@ -31,4 +31,4 @@ order to properly function.
 Two webhooks need to be setup, for the `issue_comment` and
 `pull_request` event types. In order to reduce headaches they
 should be pointing at two different paths but use the same
-secret.
+`secret`.

@@ -67,7 +67,7 @@ func (rp *rplus) prHandler(body []byte, w http.ResponseWriter) {
 	if *event.Action != "opened" && *event.Action != "synchronize" {
 		return
 	}
-	rp.newCommit(*event.Number, *event.PullRequest.Head.SHA)
+	rp.newCommit(*event.Number, *event.PullRequest.Head.SHA, *event.PullRequest.User.Login)
 }
 
 func (rp *rplus) commentHandler(body []byte, w http.ResponseWriter) {
@@ -80,11 +80,8 @@ func (rp *rplus) commentHandler(body []byte, w http.ResponseWriter) {
 	if event.Issue.PullRequestLinks == nil {
 		return
 	}
-	if _, present := rp.reviewers[*event.Sender.Login]; !present {
-		return
-	}
 	if !rp.reviewPattern.Match([]byte(*event.Comment.Body)) {
 		return
 	}
-	rp.newPlus(*event.Issue.Number)
+	rp.newPlus(*event.Issue.Number, *event.Sender.Login)
 }
