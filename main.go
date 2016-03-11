@@ -41,7 +41,7 @@ func (rp *rplus) newCommit(pr int, hash string) {
 	rp.pending[pr] = &pull{currentHash: hash}
 	err := rp.updateStatus(hash, "pending")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to update status for commit '%s' on #%d: %s", hash, pr, err)
+		fmt.Fprintf(os.Stderr, "Failed to update status for commit '%s' on #%d: %s\n", hash, pr, err)
 	}
 }
 
@@ -49,7 +49,7 @@ func (rp *rplus) newPlus(pr int) {
 	rp.pMu.Lock()
 	defer rp.pMu.Unlock()
 	if _, present := rp.pending[pr]; !present {
-		fmt.Fprintf(os.Stderr, "Received r+ on PR I don't know about: #%d", pr)
+		fmt.Fprintf(os.Stderr, "Received r+ on PR I don't know about: #%d\n", pr)
 		return
 	}
 	o := rp.pending[pr]
@@ -57,7 +57,7 @@ func (rp *rplus) newPlus(pr int) {
 	if o.reviews >= rp.requiredReviews {
 		err := rp.updateStatus(o.currentHash, "success")
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to update status for commit '%s' on #%d: %s", o.currentHash, pr, err)
+			fmt.Fprintf(os.Stderr, "Failed to update status for commit '%s' on #%d: %s\n", o.currentHash, pr, err)
 			return
 		}
 		delete(rp.pending, pr)
@@ -94,14 +94,14 @@ func (rp *rplus) updateStatus(hash string, state string) error {
 		return err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == 200 || resp.StatusCode == 201 {
+		return nil
+	}
 	content, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}
-	if resp.StatusCode != 200 && resp.StatusCode != 201 {
-		return fmt.Errorf("unexpected response status code, body: %s", strings.Replace(string(content), "\n", "", -1))
-	}
-	return nil
+	return fmt.Errorf("unexpected response status code, body: %s", strings.Replace(string(content), "\n", "", -1))
 }
 
 func (rp *rplus) run(webhookAddr, certPath, keyPath, prPath, commentPath string) error {
@@ -135,13 +135,13 @@ func main() {
 
 	contents, err := ioutil.ReadFile(*configPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to read config file '%s': %s", *configPath, err)
+		fmt.Fprintf(os.Stderr, "Failed to read config file '%s': %s\n", *configPath, err)
 		return
 	}
 	var c config
 	err = yaml.Unmarshal(contents, &c)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to parse config file '%s': %s", *configPath, err)
+		fmt.Fprintf(os.Stderr, "Failed to parse config file '%s': %s\n", *configPath, err)
 		return
 	}
 	reviewerMap := make(map[string]struct{}, len(c.Reviewers))
@@ -150,7 +150,7 @@ func main() {
 	}
 	reviewPattern, err := regexp.Compile(c.ReviewPattern)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to compile review pattern: %s", err)
+		fmt.Fprintf(os.Stderr, "Failed to compile review pattern: %s\n", err)
 		return
 	}
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: c.AccessToken})
@@ -173,6 +173,6 @@ func main() {
 		c.WebhookServer.CommentPath,
 	)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to run r-plus: %s", err)
+		fmt.Fprintf(os.Stderr, "Failed to run r-plus: %s\n", err)
 	}
 }

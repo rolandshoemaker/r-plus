@@ -16,7 +16,7 @@ import (
 func (rp *rplus) verifiedHandler(handler func([]byte, http.ResponseWriter)) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
-			fmt.Fprintf(os.Stderr, "Invalid request method: %s", r.Method)
+			fmt.Fprintf(os.Stderr, "Invalid request method: %s\n", r.Method)
 			return
 		}
 
@@ -30,7 +30,7 @@ func (rp *rplus) verifiedHandler(handler func([]byte, http.ResponseWriter)) http
 		// Read body
 		body, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error reading request body: %s", err)
+			fmt.Fprintf(os.Stderr, "Error reading request body: %s\n", err)
 			return
 		}
 
@@ -39,7 +39,7 @@ func (rp *rplus) verifiedHandler(handler func([]byte, http.ResponseWriter)) http
 		mac.Write(body)
 		expectedMAC := mac.Sum(nil)
 		if len(githubSignature) < 5 {
-			fmt.Fprintf(os.Stderr, "Invalid signature on request, no actual signature")
+			fmt.Fprintln(os.Stderr, "Invalid signature on request, no actual signature")
 			return
 		}
 		sigBytes, err := hex.DecodeString(githubSignature[5:])
@@ -48,11 +48,11 @@ func (rp *rplus) verifiedHandler(handler func([]byte, http.ResponseWriter)) http
 			return
 		}
 		if match := hmac.Equal(sigBytes, expectedMAC); !match {
-			fmt.Fprintf(os.Stderr, "Invalid signature on request, provided: %x, expected: sha1=%x", githubSignature, expectedMAC)
+			fmt.Fprintf(os.Stderr, "Invalid signature on request, provided: %x, expected: sha1=%x\n", githubSignature, expectedMAC)
 			return
 		}
 
-		fmt.Fprintf(os.Stdout, "Request with valid signature for endpoint: %s", r.URL)
+		fmt.Fprintf(os.Stdout, "Request with valid signature for endpoint: %s\n", r.URL)
 		handler(body, w)
 	})
 }
@@ -61,7 +61,7 @@ func (rp *rplus) prHandler(body []byte, w http.ResponseWriter) {
 	var event github.PullRequestEvent
 	err := json.Unmarshal(body, &event)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to unmarshal PR event: %s", err)
+		fmt.Fprintf(os.Stderr, "Failed to unmarshal PR event: %s\n", err)
 		return
 	}
 	if *event.Action != "opened" && *event.Action != "synchronize" {
@@ -74,7 +74,7 @@ func (rp *rplus) commentHandler(body []byte, w http.ResponseWriter) {
 	var event github.IssueCommentEvent
 	err := json.Unmarshal(body, &event)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to unmarshal comment event: %s", err)
+		fmt.Fprintf(os.Stderr, "Failed to unmarshal comment event: %s\n", err)
 		return
 	}
 	if event.Issue.PullRequestLinks == nil {
